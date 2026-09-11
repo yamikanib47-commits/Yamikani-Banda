@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Yamikani Banda is a Zambian marketing and creative technology professional working across digital marketing, branding, content, AI automation, digital products and startup growth." />
+    <title>Yamikani Banda | Marketing, Creative & Digital Technology</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: '#fdf8f5',
+              'on-background': '#1c1b19',
+              primary: '#18150e',
+              'on-primary': '#ffffff',
+              surface: '#fdf8f5',
+              'surface-variant': '#e6e2de',
+              outline: '#7c766e',
+              'outline-variant': '#cdc5bc',
+              accent: '#6B665E'
+            },
+            fontFamily: {
+              sans: ["Hanken Grotesk", "sans-serif"],
+              display: ["Libre Caslon Text", "serif"],
+            },
+            borderRadius: {
+              DEFAULT: '0.25rem',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Hanken Grotesk', sans-serif;
+        background-color: #fdf8f5;
+        color: #1c1b19;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3",
+    "jszip": "https://esm.sh/jszip@3.10.1",
+    "file-saver": "https://esm.sh/file-saver@2.0.5"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-background text-on-background antialiased selection:bg-surface-variant">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
