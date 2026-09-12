@@ -35,6 +35,8 @@ async function startServer() {
       let response;
       let lastError;
 
+      const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
       for (const model of modelsToTry) {
         try {
           response = await ai.models.generateContent({
@@ -85,13 +87,17 @@ async function startServer() {
           });
           break; // success
         } catch (error: any) {
-          // Log gracefully to avoid false-positive error detections in the preview environment
           console.log(`[AI Fallback] Model ${model} failed, trying next... (${error?.message || 'unknown error'})`);
           lastError = error;
+          await delay(500); // Wait 500ms before trying the next model
         }
       }
 
       if (!response) {
+        const errorMsg = lastError?.message || '';
+        if (errorMsg.includes('Unexpected token') || errorMsg.includes('503')) {
+          throw new Error("AI models are currently experiencing extremely high demand. Please try again in a few moments.");
+        }
         throw lastError;
       }
 

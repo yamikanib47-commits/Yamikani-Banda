@@ -30,15 +30,24 @@ const CMS: React.FC = () => {
                 body: JSON.stringify({ description: aiDescription })
             });
             
+            let responseData;
+            const text = await response.text();
+            try {
+                responseData = JSON.parse(text);
+            } catch (e) {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                }
+                throw new Error('Invalid JSON response from server');
+            }
+
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to generate');
+                throw new Error(responseData.error || 'Failed to generate');
             }
             
-            const generatedData = await response.json();
             setCurrentProject(prev => ({
                 ...prev,
-                ...generatedData
+                ...responseData
             }));
             setAiDescription('');
         } catch (error: any) {
