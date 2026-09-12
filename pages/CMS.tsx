@@ -12,6 +12,42 @@ const CMS: React.FC = () => {
     // CMS State
     const [isEditing, setIsEditing] = useState(false);
     const [currentProject, setCurrentProject] = useState<Partial<Project> | null>(null);
+    
+    // AI State
+    const [aiDescription, setAiDescription] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [aiError, setAiError] = useState('');
+
+    const handleAIGenerate = async () => {
+        if (!aiDescription.trim()) return;
+        setIsGenerating(true);
+        setAiError('');
+        
+        try {
+            const response = await fetch('/api/generate-project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: aiDescription })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to generate');
+            }
+            
+            const generatedData = await response.json();
+            setCurrentProject(prev => ({
+                ...prev,
+                ...generatedData
+            }));
+            setAiDescription('');
+        } catch (error: any) {
+            console.error('AI Generation error:', error);
+            setAiError(error.message || 'An error occurred while generating.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     useEffect(() => {
         const auth = sessionStorage.getItem('cms_auth');
@@ -213,6 +249,42 @@ const CMS: React.FC = () => {
                             <h3 className="text-2xl font-display text-primary mb-8 border-b border-outline-variant pb-6">
                                 {currentProject?.id ? 'Edit Project' : 'New Project'}
                             </h3>
+
+                            {/* AI Generation Box */}
+                            <div className="mb-10 p-6 bg-surface-variant border border-outline-variant rounded">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                                    <h4 className="text-sm font-semibold uppercase tracking-widest text-primary">AI Auto-Fill</h4>
+                                </div>
+                                <p className="text-xs text-outline mb-4">Briefly describe the project or credential. The AI will instantly generate a professional title, description, insights, and tags for you.</p>
+                                
+                                {aiError && <div className="text-error text-xs mb-3">{aiError}</div>}
+                                
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <input 
+                                        type="text" 
+                                        value={aiDescription}
+                                        onChange={e => setAiDescription(e.target.value)}
+                                        placeholder="e.g., Developed a React native app for Nike that increased sales by 20%..."
+                                        className="flex-1 bg-background border border-outline-variant p-3 focus:outline-none focus:border-primary text-primary text-sm"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAIGenerate();
+                                            }
+                                        }}
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={handleAIGenerate}
+                                        disabled={isGenerating || !aiDescription.trim()}
+                                        className="bg-primary text-on-primary px-6 py-3 rounded font-semibold tracking-widest uppercase text-xs hover:bg-primary/90 transition-colors disabled:opacity-50 min-w-[140px]"
+                                    >
+                                        {isGenerating ? 'Generating...' : 'Generate'}
+                                    </button>
+                                </div>
+                            </div>
+
                             <form onSubmit={handleSave} className="flex flex-col gap-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <label className="flex flex-col gap-2">
