@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { loadDataFromDrive, saveDataToDrive, uploadImageToDrive } from '../utils/drive';
 
 export type ProjectLayoutType = 'main' | 'secondary' | 'accent' | 'standard';
 
@@ -9,7 +10,7 @@ export interface Project {
     category: string;
     description: string;
     imageUrl?: string;
-    icon?: string; // e.g., 'manage_search'
+    icon?: string;
     insight?: string;
     impact?: string;
     tags: string[];
@@ -17,6 +18,7 @@ export interface Project {
 }
 
 const defaultProjects: Project[] = [
+    // ... default projects remain the same
     {
         id: '1',
         title: 'AutoAce',
@@ -74,51 +76,141 @@ interface CMSContextType {
     addProject: (project: Omit<Project, 'id'>) => Promise<void>;
     updateProject: (id: string, project: Omit<Project, 'id'>) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
+    uploadImage: (file: File) => Promise<string | undefined>;
+    driveToken: string | null;
+    loginToDrive: () => void;
+    isDriveLoading: boolean;
+    profileImageUrl: string | null;
+    updateProfileImage: (url: string) => Promise<void>;
 }
 
 const CMSContext = createContext<CMSContextType | undefined>(undefined);
 
 export const CMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // TODO: When migrating to a real backend (e.g., Firebase via Antigravity),
-    // replace this initialization with a data fetching hook (e.g., onSnapshot or getDocs).
     const [projects, setProjects] = useState<Project[]>(() => {
         const saved = localStorage.getItem('portfolio_projects');
         if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (e) {
-                console.error("Error parsing stored projects", e);
-            }
+            try { return JSON.parse(saved); } catch (e) { console.error(e); }
         }
         return defaultProjects;
     });
+    
+    const [profileImageUrl, setProfileImageUrl] = useState<string | null>(() => {
+        return localStorage.getItem('portfolio_profile_image') || null;
+    });
 
-    // TODO: Remove this local storage synchronization effect when a backend is added.
+    const [driveToken, setDriveToken] = useState<string | null>(null);
+    const [isDriveLoading, setIsDriveLoading] = useState(false);
+    const tokenClient = useRef<any>(null);
+
+    const loginToDrive = () => {
+        if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+            alert('VITE_GOOGLE_CLIENT_ID is missing in environment variables.');
+            return;
+        }
+        if (!window.google) {
+            alert('Google Identity Services not loaded yet. Please try again in a moment.');
+            return;
+        }
+
+        if (!tokenClient.current) {
+            tokenClient.current = window.google.accounts.oauth2.initTokenClient({
+                client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                callback: async (response: any) => {
+                    if (response.error !== undefined) {
+                        console.error('Drive Auth Error:', response.error);
+                        return;
+                    }
+                    const token = response.access_token;
+                    setDriveToken(token);
+                    setIsDriveLoading(true);
+                    try {
+                        const data = await loadDataFromDrive(token);
+                        if (data) {
+                            if (data.projects && Array.isArray(data.projects)) {
+                                setProjects(data.projects);
+                            } else if (Array.isArray(data)) {
+                                setProjects(data); // Fallback for old data format
+                            }
+                            if (data.profileImage) {
+                                setProfileImageUrl(data.profileImage);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error loading data from Drive', e);
+                    } finally {
+                        setIsDriveLoading(false);
+                    }
+                },
+            });
+        }
+        
+        tokenClient.current.requestAccessToken();
+    };
+
+    // Auto-save to local storage as fallback
     useEffect(() => {
         localStorage.setItem('portfolio_projects', JSON.stringify(projects));
-    }, [projects]);
+        if (profileImageUrl) {
+            localStorage.setItem('portfolio_profile_image', profileImageUrl);
+        }
+    }, [projects, profileImageUrl]);
+
+    const saveToDriveSilently = async (updatedProjects: Project[], updatedProfileImage: string | null = profileImageUrl) => {
+        if (driveToken) {
+            try {
+                await saveDataToDrive(driveToken, {
+                    projects: updatedProjects,
+                    profileImage: updatedProfileImage
+                });
+            } catch (e) {
+                console.error("Failed to save to Drive", e);
+            }
+        }
+    };
+
+    const updateProfileImage = async (url: string) => {
+        setProfileImageUrl(url);
+        await saveToDriveSilently(projects, url);
+    };
 
     const addProject = async (projectData: Omit<Project, 'id'>) => {
-        // TODO: Replace with backend call (e.g., const docRef = await addDoc(collection(db, 'projects'), projectData))
         const newProject: Project = {
             ...projectData,
             id: Date.now().toString(),
         };
-        setProjects(prev => [...prev, newProject]);
+        const updated = [...projects, newProject];
+        setProjects(updated);
+        await saveToDriveSilently(updated);
     };
 
     const updateProject = async (id: string, projectData: Omit<Project, 'id'>) => {
-        // TODO: Replace with backend call (e.g., await updateDoc(doc(db, 'projects', id), projectData))
-        setProjects(prev => prev.map(p => p.id === id ? { ...projectData, id } : p));
+        const updated = projects.map(p => p.id === id ? { ...projectData, id } : p);
+        setProjects(updated);
+        await saveToDriveSilently(updated);
     };
 
     const deleteProject = async (id: string) => {
-        // TODO: Replace with backend call (e.g., await deleteDoc(doc(db, 'projects', id)))
-        setProjects(prev => prev.filter(p => p.id !== id));
+        const updated = projects.filter(p => p.id !== id);
+        setProjects(updated);
+        await saveToDriveSilently(updated);
+    };
+
+    const uploadImage = async (file: File) => {
+        if (!driveToken) {
+            alert("You must log in to Google Drive to upload images.");
+            return undefined;
+        }
+        return await uploadImageToDrive(driveToken, file);
     };
 
     return (
-        <CMSContext.Provider value={{ projects, addProject, updateProject, deleteProject }}>
+        <CMSContext.Provider value={{ 
+            projects, addProject, updateProject, deleteProject, 
+            uploadImage, driveToken, loginToDrive, isDriveLoading,
+            profileImageUrl, updateProfileImage
+        }}>
             {children}
         </CMSContext.Provider>
     );

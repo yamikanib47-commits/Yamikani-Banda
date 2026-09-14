@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useCMS, Project, ProjectLayoutType } from '../context/CMSContext';
 
 const CMS: React.FC = () => {
-    const { projects, addProject, updateProject, deleteProject } = useCMS();
+    const { 
+        projects, addProject, updateProject, deleteProject,
+        driveToken, loginToDrive, uploadImage, isDriveLoading,
+        profileImageUrl, updateProfileImage
+    } = useCMS();
     
     // Auth State
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -100,6 +104,37 @@ const CMS: React.FC = () => {
             icon: ''
         });
         setIsEditing(true);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        try {
+            const url = await uploadImage(file);
+            if (url && currentProject) {
+                setCurrentProject({ ...currentProject, imageUrl: url });
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload image to Drive.");
+        }
+    };
+
+    const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        try {
+            const url = await uploadImage(file);
+            if (url) {
+                await updateProfileImage(url);
+                alert("Profile image updated successfully!");
+            }
+        } catch (error) {
+            console.error("Profile image upload failed", error);
+            alert("Failed to upload profile image to Drive.");
+        }
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -200,9 +235,29 @@ const CMS: React.FC = () => {
                             <h1 className="text-4xl md:text-5xl font-display text-primary leading-tight mb-2">
                                 Content <span className="italic">Management</span>
                             </h1>
-                            <p className="text-outline font-sans">Manage your portfolio projects. Changes are saved to your browser's local storage.</p>
+                            <p className="text-outline font-sans">
+                                {driveToken 
+                                    ? "Connected to Google Drive. Your changes are automatically synced to the cloud."
+                                    : "Connect Google Drive to securely back up your data and upload images to the cloud."
+                                }
+                            </p>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex flex-wrap gap-4">
+                            {!driveToken && (
+                                <button 
+                                    onClick={loginToDrive}
+                                    className="border border-[#4285F4] text-[#4285F4] px-6 py-3 rounded font-semibold tracking-widest uppercase text-xs hover:bg-[#4285F4]/10 transition-colors flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">cloud</span>
+                                    Connect Drive
+                                </button>
+                            )}
+                            {isDriveLoading && (
+                                <span className="flex items-center text-xs text-outline uppercase tracking-widest font-semibold">
+                                    <span className="material-symbols-outlined animate-spin text-[16px] mr-2">sync</span>
+                                    Syncing Drive...
+                                </span>
+                            )}
                             {!isEditing && (
                                 <button 
                                     onClick={handleCreateNew}
@@ -219,6 +274,36 @@ const CMS: React.FC = () => {
                             </button>
                         </div>
                     </div>
+
+                    {!isEditing && (
+                        <div className="mb-12 border border-outline-variant p-8 bg-background flex flex-col md:flex-row items-center gap-8">
+                            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border border-outline-variant bg-surface shrink-0">
+                                <img 
+                                    src={profileImageUrl || "/image.png"} 
+                                    alt="Profile" 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2070&auto=format&fit=crop";
+                                    }}
+                                />
+                            </div>
+                            <div className="flex-1 text-center md:text-left">
+                                <h3 className="text-xl font-display text-primary mb-2">Profile Image</h3>
+                                <p className="text-sm text-outline mb-4">This image appears on the Home page. Uploading a new image here will automatically sync it to your Google Drive.</p>
+                                
+                                {driveToken ? (
+                                    <label className="cursor-pointer bg-outline text-background px-6 py-3 rounded inline-flex items-center font-semibold text-xs uppercase tracking-widest hover:bg-primary transition-colors">
+                                        Upload New Image
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
+                                    </label>
+                                ) : (
+                                    <button type="button" onClick={loginToDrive} className="cursor-pointer border border-[#4285F4] text-[#4285F4] px-6 py-3 rounded inline-flex items-center font-semibold text-xs uppercase tracking-widest hover:bg-[#4285F4]/10 transition-colors">
+                                        Connect Drive to Upload
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {!isEditing ? (
                         <div className="flex flex-col gap-4">
@@ -358,13 +443,25 @@ const CMS: React.FC = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <label className="flex flex-col gap-2">
                                         <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">Image URL</span>
-                                        <input 
-                                            type="text" 
-                                            value={currentProject?.imageUrl || ''} 
-                                            onChange={e => setCurrentProject({...currentProject, imageUrl: e.target.value})}
-                                            className="w-full bg-transparent border border-outline-variant p-3 focus:outline-none focus:border-primary text-primary"
-                                            placeholder="https://..."
-                                        />
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={currentProject?.imageUrl || ''} 
+                                                onChange={e => setCurrentProject({...currentProject, imageUrl: e.target.value})}
+                                                className="w-full bg-transparent border border-outline-variant p-3 focus:outline-none focus:border-primary text-primary"
+                                                placeholder="https://..."
+                                            />
+                                            {driveToken ? (
+                                                <label className="cursor-pointer bg-outline text-background px-4 py-3 rounded flex items-center justify-center font-semibold text-xs uppercase tracking-widest hover:bg-primary transition-colors whitespace-nowrap">
+                                                    Upload
+                                                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                                </label>
+                                            ) : (
+                                                <button type="button" onClick={loginToDrive} className="cursor-pointer border border-[#4285F4] text-[#4285F4] px-4 py-3 rounded flex items-center justify-center font-semibold text-xs uppercase tracking-widest hover:bg-[#4285F4]/10 transition-colors whitespace-nowrap">
+                                                    Connect Drive
+                                                </button>
+                                            )}
+                                        </div>
                                         <span className="text-xs text-outline">Used for main and secondary layouts.</span>
                                     </label>
                                     <label className="flex flex-col gap-2">

@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useCMS } from '../context/CMSContext';
 
 const Home: React.FC = () => {
+  const { profileImageUrl } = useCMS();
+  
   return (
     <div className="w-full">
       {/* Hero Section */}
@@ -41,11 +44,10 @@ const Home: React.FC = () => {
           <div className="lg:col-span-6">
             <div className="aspect-[4/5] rounded overflow-hidden">
               <img 
-                src="/profile.jpg" 
+                src={profileImageUrl || "/image.png"} 
                 alt="Yamikani Banda"
                 className="w-full h-full object-cover grayscale-[20%]"
                 onError={(e) => {
-                  // Fallback if the user hasn't uploaded the image yet
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2070&auto=format&fit=crop";
                 }}
               />
